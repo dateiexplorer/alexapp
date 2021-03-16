@@ -34,11 +34,3 @@ INSERT INTO `states` (`state_id`, `text`) VALUES
     (4, 'Dein Testergebnis war negativ. Beachte bitte weiterhin die bestehenden Regelungen!');
 
 COMMIT;
-
---INSERT INTO `self` (`user_id`, `state_id`) VALUES
-    --(1, 0);
-
---INSERT INTO `events` (`event_id`, `event_name`, `creation_date`) VALUES
-    --('1', 'HelloEvent', '2021-03-14'),
-    --('2', 'WorldEvent', '2021-02-16'),
-    --('3', 'Restaurant', '2021-03-07');

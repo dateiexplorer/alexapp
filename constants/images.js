@@ -1,5 +1,3 @@
-import { LogBox } from 'react-native';
-
 const tested = require('../assets/images/tested.png');
 const infected = require('../assets/images/infected.png');
 const red = require('../assets/images/red.png');

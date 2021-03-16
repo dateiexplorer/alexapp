@@ -37,6 +37,8 @@ import { FloatingAction } from 'react-native-floating-action';
 
 import { images } from './constants';
 import { icons } from './constants';
+import { Colors, Sizes } from './constants';
+import { getPixelSizeForLayoutSize } from 'react-native/Libraries/Utilities/PixelRatio';
 
 // Open database instance
 const db = openDatabase(
@@ -44,7 +46,7 @@ const db = openDatabase(
         name: 'alexuser.sqlite3',
         createFromLocation: '~alexuser.db',
     },
-    () => { console.log("connect successfully to database"); },
+    () => { console.log("connect to database"); },
     (error) => { Alert.alert("Datenbankenfehler", error.message )}
 );
 
@@ -52,10 +54,13 @@ const db = openDatabase(
 const App = () => {
     return (
         <NavigationContainer>
+            {/* Use login navigator to check user login. */}
             <LoginNavigator />
         </NavigationContainer>
     )
 }
+
+// --- NAVIGATION
 
 const LoginStack = createStackNavigator();
 
@@ -69,7 +74,6 @@ const LoginNavigator = () => {
             <LoginStack.Screen
                 name="Login"
                 component={LoginScreen}
-                options={{ title: 'Login' }}
             />
             <LoginStack.Screen
                 name="TabNavigator"
@@ -86,6 +90,8 @@ const TabNavigator = ({ navigation }) => {
     const getTabBarVisibility = (route) => {
         const routeName = getFocusedRouteNameFromRoute(route)
         
+        // Don't show Tabbar in StackNavigators.
+
         if (routeName === 'QRScan' || routeName === 'QRScreen') {
             return false;
         }
@@ -100,23 +106,23 @@ const TabNavigator = ({ navigation }) => {
     return (
         <Tabs.Navigator
             tabBarOptions={{
-                activeTintColor: '#333333',
-                inactiveTintColor: '#ababab'
+                activeTintColor: Colors.buttonInactiveColor,
+                inactiveTintColor: Colors.buttonInactiveColor,
             }}
         >
             <Tabs.Screen
                 name="HomeNavigator"
                 component={HomeNavigator}
                 options={{
-                    title: 'Home',
+                    title: 'Startseite',
                     tabBarIcon: ({ focused }) => (
                             <Image 
-                                source={icons.homeIcon}
+                                source={icons.home}
                                 resizeMode="contain"
                                 style={{
-                                    width: 25,
-                                    height: 25,
-                                    tintColor: focused ? '#333333' : '#ababab'
+                                    width: Sizes.tabButtonSize,
+                                    height: Sizes.tabButtonSize,
+                                    tintColor: focused ? Colors.buttonActiveColor : Colors.buttonInactiveColor
                                 }}
                             />
                     ),
@@ -131,13 +137,13 @@ const TabNavigator = ({ navigation }) => {
                         title: 'Events',
                         tabBarIcon: ( {focused} ) => (
                             <Image 
-                                source={icons.eventsIcon}
-                                resizeMode="contain"
-                                style={{
-                                    width: 25,
-                                    height: 25,
-                                    tintColor: focused ? '#333333' : '#ababab'
-                                }}
+                            source={icons.events}
+                            resizeMode="contain"
+                            style={{
+                                width: Sizes.tabButtonSize,
+                                height: Sizes.tabButtonSize,
+                                tintColor: focused ? Colors.buttonActiveColor : Colors.buttonInactiveColor
+                            }}
                             />
                         )
                     })
@@ -186,7 +192,7 @@ const HomeNavigator = () => {
             <HomeStack.Screen
                 name="HomeScreen"
                 component={HomeScreen}
-                options={{ title: 'Home'}}
+                options={{ title: 'Startseite'}}
             />
         </HomeStack.Navigator>
     );
@@ -195,7 +201,7 @@ const HomeNavigator = () => {
 // --- LOGIN
 
 const LoginScreen = ({ navigation }) => {
-    const [firstLogin, setFirstLogin] = useState(true);
+    const [loggedIn, setLoggedIn] = useState(true);
 
     useEffect(() => {
         getData();
@@ -203,7 +209,6 @@ const LoginScreen = ({ navigation }) => {
 
 
     const getId = () => {
-        console.log("LoginScreen: ask for user id");
         fetch('http://18.198.41.152:8080/getNewID.php?type=user')
             .then((response) => response.json())
             .then((json) => {
@@ -250,12 +255,12 @@ const LoginScreen = ({ navigation }) => {
     }
 
     const getData = () => {
-        // Get id
+        // Check for id. If id exists, user already logged in.
         db.transaction((tx) => {
             let query = "SELECT * FROM `self`;";
             tx.executeSql(query, [], (_, results) => {
                 if (results.rows.length == 0) {
-                    setFirstLogin(true);
+                    setLoggedIn(false);
                 } else {
                     navigation.reset({
                         index: 0,
@@ -272,7 +277,7 @@ const LoginScreen = ({ navigation }) => {
                         ]
                     });
                 }
-            }, (_, error) => {
+            }, (tx, error) => {
                 console.log("LoginScreen.getData (error): " + error);
             });
         });
@@ -280,7 +285,7 @@ const LoginScreen = ({ navigation }) => {
 
     return (
         <View>
-            {!firstLogin ? <ActivityIndicator /> :
+            {loggedIn ? <ActivityIndicator /> :
             <ScrollView>
                 <Section 
                     content={
@@ -304,7 +309,7 @@ const LoginScreen = ({ navigation }) => {
                     content={
                         <View>
                             <Text style={{
-                                marginBottom: 16
+                                marginBottom: Sizes.defaultMargin
                             }}>
                                 Willkommen bei der Alex-App.
                                 Diese App hilft dir und deinen Mitmenschen durch die Corona-Pandemie.
@@ -319,18 +324,18 @@ const LoginScreen = ({ navigation }) => {
                                 Datenbank gespeichert wird.
                             </Text>
                             <View style={{
-                                marginBottom: 16
+                                marginBottom: Sizes.defaultMargin
                             }}>
                                 <Button
                                     onPress={getId}
-                                    color='#333333'
+                                    color={Colors.buttonActiveColor}
                                     title="Einverstanden" />
                             </View>
                             
                             <View>
                                 <Button
                                     onPress={() => { BackHandler.exitApp(); }}
-                                    color='#333333'
+                                    color={Colors.buttonActiveColor}
                                     title="App verlassen" />
                             </View>
                         </View>
@@ -357,11 +362,10 @@ const LoginScreen = ({ navigation }) => {
 
 const HomeScreen = ({ navigation, route }) => {
     const [refreshing, setRefreshing] = useState(true);
-    const [dataSource, setDataSource] = useState([]);
     const [testAvailable, setTestAvailable] = useState(false);
-    const [numOfInfectedMeetings, setNumOfInfectedMeetings] = useState(0);
-    const [numOfInfectedEvents, setNumOfInfectedEvents] = useState(0);
-    const [userId, setUserId] = useState(route.params.user_id);
+    const [numOfInfectedMeetings, setNumOfInfectedMeetings] = useState(null);
+    const [numOfInfectedEvents, setNumOfInfectedEvents] = useState(null);
+    const [userId] = useState(route.params.user_id);
     const [userState, setUserState] = useState(route.params.state_id);
     const [stateImg, setStateImg] = useState(null);
     const [stateText, setStateText] = useState(null);
@@ -379,9 +383,6 @@ const HomeScreen = ({ navigation, route }) => {
         fetch('http://18.198.41.152:8080/getData.php')
             .then((response) => response.json())
             .then((json) => {
-                setDataSource(json);
-                console.log(json);
-
                 // If data received, update your state.
                 calculateState(json.personIds, json.eventIds);
             })
@@ -399,7 +400,7 @@ const HomeScreen = ({ navigation, route }) => {
     }
 
     const checkIfTestAvailable = () => {
-        console.log("Fetching data from server...");
+        console.log("Fetching test data from server...");
         fetch('http://18.198.41.152:8080/getCheckNegative.php?personid=' + userId)
             .then((response) => response.json())
             .then((json) => {
@@ -416,6 +417,8 @@ const HomeScreen = ({ navigation, route }) => {
     const calculateState = (users, events) => {
         checkIfPositive(users, events);
 
+
+        // Number of infected meetings.
         db.transaction((tx) => {
             let query = "SELECT COUNT(*) AS `count` \
                         FROM `meetings` WHERE `person_id` IN (" + users.join(',') + ") \
@@ -429,6 +432,7 @@ const HomeScreen = ({ navigation, route }) => {
             });
         });
 
+        // Number of infected events.
         db.transaction((tx) => {
             let query = "SELECT COUNT(*) AS `count` FROM `events` WHERE `event_id` IN (" + events.join(',') + ") \
                         AND ROUND((JULIANDAY(DATETIME('now', 'localtime')) - JULIANDAY(`creation_date`))) < 14.0;";
@@ -436,7 +440,7 @@ const HomeScreen = ({ navigation, route }) => {
                 let data = results.rows.item(0);
                 setNumOfInfectedEvents(data.count);
             }, (tx, error) => {
-                console.error("HomeScreen.checkForInfectedEvents (error): " + error);
+                console.error("HomeScreen.calculateState (error): " + error);
             });
         });
     }
@@ -449,10 +453,10 @@ const HomeScreen = ({ navigation, route }) => {
                     // You're positive.
                     updateState(3);
 
-                    // Send my events to the list.
+                    // Send my events to the server.
                     sendMyEvents();
                 } else {
-                    // Check for meetings
+                    // Check for meetings.
                     checkForInfectedMeetings(users, events)
                 }
             }, (tx, error) => {
@@ -501,6 +505,7 @@ const HomeScreen = ({ navigation, route }) => {
                 if (results.rows.length > 0) {
                     updateState(1);
                 } else {
+                    // Nothing found. You're clean.
                     updateState(0);
                 }
             }, (tx, error) => {
@@ -539,6 +544,8 @@ const HomeScreen = ({ navigation, route }) => {
                         WHERE ROUND((JULIANDAY(DATETIME('now', 'localtime')) - JULIANDAY(`creation_date`))) < 14.0;";
             tx.executeSql(query, [], (tx, results) => {
                 if (results.rows.length > 0) {
+                    console.log("Send data to server...");
+                    
                     let json = []
                     for (let i = 0; i < results.rows.length; i++) {
                         let tmp = {
@@ -548,8 +555,6 @@ const HomeScreen = ({ navigation, route }) => {
 
                         json.push(tmp);
                     }
-
-                    console.log(JSON.stringify(json));
 
                     fetch('http://18.198.41.152:8080/addInfectedEvents.php', {
                         method: "POST",
@@ -628,6 +633,13 @@ const HomeScreen = ({ navigation, route }) => {
                 <Section
                     title="Info über die letzten 14 Tage"
                     content={
+                        numOfInfectedEvents == null || numOfInfectedMeetings == null ? 
+                        <View>
+                            <Text>
+                                Diese Info kann zurzeit nicht angezeigt werden. Möglcherweise bit du
+                                nicht mit dem Internet verbunden.
+                            </Text>
+                        </View> :
                         <View>
                             <Text>Anzahl von infizierten Kontakten: {numOfInfectedMeetings}</Text>
                             <Text>Anzahl an infizierten Events: {numOfInfectedEvents}</Text>
@@ -637,12 +649,12 @@ const HomeScreen = ({ navigation, route }) => {
 
                 <View
                     style={{
-                        height: 100
+                        height: Sizes.endOfViewPadding
                     }}
                 />
 
                 <View style={{
-                    margin: 12
+                    margin: Sizes.sectionMarginHorizontal
                 }}>
                     <Text>Deine einzigartige ID: {userId}</Text>
                 </View>
@@ -674,7 +686,6 @@ const EventScreen = ({ navigation }) => {
             tx.executeSql(query, [], (_, results) => {
                 let data = [];
                 for (let i = 0; i < results.rows.length; i++) {
-                    console.log(results.rows.item(i));
                     data.push(results.rows.item(i));
                 }
 
@@ -692,14 +703,14 @@ const EventScreen = ({ navigation }) => {
         return (
             <View style={{
                 alignItems: 'center',
-                padding: 24,
-                marginLeft: 12,
-                marginRight: 12,
-                marginTop: 8,
-                marginBottom: 8,
-                borderRadius: 5,
-                backgroundColor: '#ffffff',
-                elevation: 5,
+                padding: Sizes.sectionPadding,
+                marginLeft: Sizes.sectionMarginHorizontal,
+                marginRight: Sizes.sectionMarginHorizontal,
+                marginTop: Sizes.setionMarginVertical,
+                marginBottom: Sizes.setionMarginVertical,
+                borderRadius: Sizes.sectionBorderRadius,
+                backgroundColor: Colors.white,
+                elevation: Sizes.elevation,
                 flexDirection: 'row',
             }}>
                 <Text 
@@ -718,7 +729,7 @@ const EventScreen = ({ navigation }) => {
                     }}
                 >
                     <Image
-                        source={require('./assets/icons/qr-code.png')}
+                        source={icons.qrScreen}
                     />
                 </TouchableOpacity>
             </View>
@@ -747,20 +758,20 @@ const EventScreen = ({ navigation }) => {
                 content={
                     <View>
                         <Text style={{
-                            marginBottom: 16
+                            marginBottom: Sizes.defaultMargin
                         }}>
                             Hier werden dir die Events der letzten 14 Tage angezeigt,
                             an denen du teilgenommen hast.
                         </Text>
                         <Button
                             onPress={addEvent}
-                            color='#333333'
+                            color={Colors.buttonActiveColor}
                             title="Neues Event erstellen" />
                     </View>
                 }
             />
 
-            {refreshing === true ? <ActivityIndicator /> : null}
+            {refreshing ? <ActivityIndicator /> : null}
 
             <FlatList
                 data={dataSource}
@@ -770,7 +781,7 @@ const EventScreen = ({ navigation }) => {
 
                 ListFooterComponent={
                     <View style={{
-                        height: 100
+                        height: Sizes.endOfViewPadding
                     }}/>
                 }
 
@@ -787,7 +798,7 @@ const EventScreen = ({ navigation }) => {
             <FloatingAction 
                 actions={[{
                     name: "Event scannen",
-                    icon: require('./assets/icons/qr-code-scan.png'),
+                    icon: icons.qrScan,
                     position: 0
                 }]}
                 overrideWithAction={true}
@@ -815,7 +826,7 @@ const AddNewEvent = ({ navigation, route }) => {
                 ('" + Date.now() + "', '" + eventName + "', DATETIME('now', 'localtime'))";
             tx.executeSql(query, [], (_, results) => {
                 navigation.navigate('EventScreen');
-            }, (_, error) => {
+            }, (tx, error) => {
                 console.log("AddNewEvent.addEvent (error): " + error);
             });
         });
@@ -828,14 +839,14 @@ const AddNewEvent = ({ navigation, route }) => {
                     <View>
                         <TextInput
                             style={{
-                                marginBottom: 16
+                                marginBottom: Sizes.defaultMargin
                             }}
                             placeholder="Eventname"
-                            underlineColorAndroid='#333333'
+                            underlineColorAndroid={Colors.buttonActiveColor}
                             onChangeText={(text) => { setEventName(text.trim()) }} />
                         <Button 
                             onPress={addEvent}
-                            color='#333333'
+                            color={Colors.buttonActiveColor}
                             title="Erstellen"
                         />
                     </View>
@@ -872,7 +883,7 @@ const QRScreen = ({ navigation, route }) => {
                             size={192} bgColor='#000000' fgColor='#ffffff'
                             logo={icons.logo} logoSize={50} />
                         <Text style={{
-                            marginTop: 12,
+                            marginTop: Colors.defaultMargin,
                             textAlign: 'center'
                         }}>{route.params.event_name + "\n" + route.params.creation_date}</Text>
                     </View>
@@ -895,7 +906,7 @@ const QRScan = ({ navigation, route }) => {
                 } else {
                     createEvent(data)
                 }
-            }, (_, error) => {
+            }, (tx, error) => {
                 console.log("EventScreen.getData (error): " + error);
             });
         });
@@ -908,7 +919,7 @@ const QRScan = ({ navigation, route }) => {
             tx.executeSql(query, [], (_, results) => {
                 Alert.alert("New event", data.event_name);
                 navigation.navigate("EventScreen");
-            }, (_, error) => {
+            }, (tx, error) => {
                 console.log("QRScan.createEvent (error): " + error);
             });
         });
@@ -921,7 +932,7 @@ const QRScan = ({ navigation, route }) => {
             tx.executeSql(query, [], (_, results) => {
                 Alert.alert("Update event", data.event_name);
                 navigation.navigate("EventScreen");
-            }, (_, error) => {
+            }, (tx, error) => {
                 console.log("QRScan.updateEvent (error): " + error);
             });
         });
@@ -947,18 +958,18 @@ const Section = (props) => {
 
 const styles = StyleSheet.create({
     section: {
-        padding: 24,
-        marginLeft: 12,
-        marginRight: 12,
-        marginTop: 8,
-        marginBottom: 8,
-        borderRadius: 5,
-        backgroundColor: '#ffffff',
-        elevation: 5,
+        padding: Sizes.sectionPadding,
+        marginLeft: Sizes.sectionMarginHorizontal,
+        marginRight: Sizes.sectionMarginHorizontal,
+        marginTop: Sizes.sectionMarginVertical,
+        marginBottom: Sizes.sectionMarginVertical,
+        borderRadius: Sizes.sectionBorderRadius,
+        backgroundColor: Colors.white,
+        elevation: Sizes.elevation,
     },
     sectionTitle: {
         fontSize: 24,
-        marginBottom: 12,
+        marginBottom: Sizes.sectionMarginHorizontal,
     },
     stateImage: {
         width: 160,
@@ -968,9 +979,9 @@ const styles = StyleSheet.create({
         borderBottomRightRadius: 70,
     },
     stateText: {
-        marginTop: 12,
-        marginLeft: 12, 
-        marginRight: 12,
+        marginTop: Sizes.sectionMarginVertical,
+        marginLeft: Sizes.sectionMarginHorizontal, 
+        marginRight: Sizes.sectionMarginHorizontal,
         textAlign: 'center',
         fontWeight: 'bold', 
         fontSize: 18
