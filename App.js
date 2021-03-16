@@ -38,7 +38,6 @@ import { FloatingAction } from 'react-native-floating-action';
 import { images } from './constants';
 import { icons } from './constants';
 import { Colors, Sizes } from './constants';
-import { getPixelSizeForLayoutSize } from 'react-native/Libraries/Utilities/PixelRatio';
 
 // Open database instance
 const db = openDatabase(
@@ -219,17 +218,13 @@ const LoginScreen = ({ navigation }) => {
             })
             .catch((error) => {
                 console.error(error);
-                Alert.alert("Fehler", "Es kann zurzeit keine neue ID angefragt werden: \n" + error.message + 
-                    "\nProbiere es später erneut. Die App wird nun geschlossen.",
-                [{
-                    text: 'Ok',
-                    onPress: () => BackHandler.exitApp(),
-                }], { cancelable: false });
+                Alert.alert("Es tut uns leid...", "Es kann zurzeit keine neue ID angefragt werden: \n" + error.message + 
+                    "\nProbiere es später erneut.");
             });
     }
 
     const persistUserId = (id, state) => {
-        console.log("LoginScreen: persist user id in db");
+        console.log("persist user id in db");
         db.transaction((tx) => {
             let sql = 'INSERT INTO `self` (`user_id`, `state_id`) VALUES (?, ?);';
             tx.executeSql(sql, [id, state], (tx, results) => {
@@ -388,7 +383,7 @@ const HomeScreen = ({ navigation, route }) => {
             })
             .catch((error) => {
                 console.error(error);
-                Alert.alert("Fehler", "Beim Laden der Daten vom Server ist ein Fehler aufgetreten:\n" + error.message + 
+                Alert.alert("Es tut uns leid...", "Beim Laden der Daten vom Server ist ein Fehler aufgetreten:\n" + error.message + 
                     "\nProbiere es später erneut!");
             })
     };
@@ -401,11 +396,11 @@ const HomeScreen = ({ navigation, route }) => {
 
     const checkIfTestAvailable = () => {
         console.log("Fetching test data from server...");
-        fetch('http://18.198.41.152:8080/getCheckNegative.php?personid=' + userId)
+        fetch('http://18.198.41.152:8080/getCheckNegative.php?personid=' + userId + "'")
             .then((response) => response.json())
             .then((json) => {
+                console.log("test for uid: " + userId + " available: " + json.message);
                 setTestAvailable(JSON.parse(json.message));
-                console.log(json.message);
             })
             .catch((error) => {
                 console.error(error);
@@ -518,8 +513,6 @@ const HomeScreen = ({ navigation, route }) => {
         db.transaction((tx) => {
             let query = "SELECT * FROM `states` WHERE `state_id` = ?";
             tx.executeSql(query, [state], (tx, results) => {
-                console.log("HomeScreen.updateState")
-
                 let text = results.rows.item(0).text;
                 setUserState(state);
                 setStateImg(images.stateImages[state]);
@@ -590,7 +583,7 @@ const HomeScreen = ({ navigation, route }) => {
                             style={styles.stateImage}
                         />
                         <Text style={styles.stateText}>
-                            Du wurdest in den letzten 14 Tagen negativ getestet.
+                            Du wurdest in den letzten 2 Tagen negativ getestet.
                         </Text>
                     </View>
                 }
@@ -706,8 +699,8 @@ const EventScreen = ({ navigation }) => {
                 padding: Sizes.sectionPadding,
                 marginLeft: Sizes.sectionMarginHorizontal,
                 marginRight: Sizes.sectionMarginHorizontal,
-                marginTop: Sizes.setionMarginVertical,
-                marginBottom: Sizes.setionMarginVertical,
+                marginTop: Sizes.sectionMarginVertical,
+                marginBottom: Sizes.sectionMarginVertical,
                 borderRadius: Sizes.sectionBorderRadius,
                 backgroundColor: Colors.white,
                 elevation: Sizes.elevation,
@@ -743,7 +736,6 @@ const EventScreen = ({ navigation }) => {
 
     // Add new event.
     const addEvent = () => {
-        console.log('add new event');
         navigation.navigate('AddNewEvent');
     }
 
@@ -883,7 +875,7 @@ const QRScreen = ({ navigation, route }) => {
                             size={192} bgColor='#000000' fgColor='#ffffff'
                             logo={icons.logo} logoSize={50} />
                         <Text style={{
-                            marginTop: Colors.defaultMargin,
+                            marginTop: Sizes.defaultMargin,
                             textAlign: 'center'
                         }}>{route.params.event_name + "\n" + route.params.creation_date}</Text>
                     </View>
@@ -907,7 +899,7 @@ const QRScan = ({ navigation, route }) => {
                     createEvent(data)
                 }
             }, (tx, error) => {
-                console.log("EventScreen.getData (error): " + error);
+                console.log("QRScan.onSuccess (error): " + error);
             });
         });
     };
