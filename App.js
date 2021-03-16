@@ -6,7 +6,6 @@ import {
     Button,
     SafeAreaView,
     StyleSheet,
-    ActivityIndicator,
     FlatList,
     Image,
     ScrollView,
@@ -16,7 +15,8 @@ import {
     RefreshControl,
     Alert,
     TouchableOpacity,
-    BackHandler
+    BackHandler,
+    Linking
 } from 'react-native';
 
 // Navigation
@@ -219,7 +219,7 @@ const LoginScreen = ({ navigation }) => {
             .catch((error) => {
                 console.error(error);
                 Alert.alert("Es tut uns leid...", "Es kann zurzeit keine neue ID angefragt werden: \n" + error.message + 
-                    "\nProbiere es später erneut.");
+                    "\nProbiere es später erneut!");
             });
     }
 
@@ -279,8 +279,23 @@ const LoginScreen = ({ navigation }) => {
     }
 
     return (
+        loggedIn ? 
+        <View style={{
+            justifyContent: 'center',
+            alignItems: 'center',
+            flex: 1,
+        }}
+        >
+            <Image
+                source={icons.logo}
+                resizeMode='contain'
+                style={{
+                    width: 50,
+                    height: 50
+                }}
+            />
+        </View> :
         <View>
-            {loggedIn ? <ActivityIndicator /> :
             <ScrollView>
                 <Section 
                     content={
@@ -348,7 +363,7 @@ const LoginScreen = ({ navigation }) => {
                         </View>
                     }
                 />
-            </ScrollView>}
+            </ScrollView>
         </View>
     );
 }
@@ -605,24 +620,41 @@ const HomeScreen = ({ navigation, route }) => {
                     />
                 }
             >
-                {refreshing ? <ActivityIndicator /> : null}
-
                 {testAvailable ?  (renderNegativeTest()) : null}
 
                 <Section 
                     title="Dein aktueller Status"
                     content={
-                        <View style={{
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}>
-                            <Image 
-                                source={stateImg}
-                                style={styles.stateImage}
-                            />
-                            <Text style={styles.stateText}>
-                                {stateText}
+                        stateImg == null || stateText == null ?
+                        <View>
+                            <Text>
+                                Dein aktueller Status kann momentan nicht abgerufen werden. Möglicherweise
+                                bist du nicht mit dem Internet verbunden.
                             </Text>
+                        </View> :
+                        <View>
+                            <View style={{
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                                }}>
+                                <Image 
+                                    source={stateImg}
+                                    style={styles.stateImage}
+                                />
+                                <Text style={styles.stateText}>
+                                    {stateText}
+                                </Text> 
+                            </View>
+                            {userState == 1 || userState == 2 ?
+                                <View style={{
+                                    marginTop: Sizes.defaultMargin
+                                }}>
+                                    <Button
+                                        title="Jetzt testen"
+                                        color={Colors.buttonActiveColor}
+                                        onPress={() => { Linking.openURL('https://www.rki.de') }}
+                                    />
+                                </View>  : null}
                         </View>
                     }
                 />
@@ -632,7 +664,7 @@ const HomeScreen = ({ navigation, route }) => {
                         numOfInfectedEvents == null || numOfInfectedMeetings == null ? 
                         <View>
                             <Text>
-                                Diese Info kann zurzeit nicht angezeigt werden. Möglcherweise bit du
+                                Diese Info kann zurzeit nicht angezeigt werden. Möglicherweise bist du
                                 nicht mit dem Internet verbunden.
                             </Text>
                         </View> :
@@ -643,17 +675,31 @@ const HomeScreen = ({ navigation, route }) => {
                     }
                 />
 
-                <View
-                    style={{
-                        height: Sizes.endOfViewPadding
-                    }}
+                <Section 
+                    content={
+                        <View>
+                            <Text
+                                style={{
+                                    marginBottom: Sizes.defaultMargin
+                                }}
+                            >
+                                Der folgende QR-Code beinhaltet deine einzigartige ID. Diese ID kann
+                                von Laboren oder Ärzten gescannt werden, um einen Test mit dieser
+                                einzigartigen ID zu versehen. Sie kann nicht von anderen Alex-Apps
+                                gescannt werden.{"\n"}
+                                Deine einzigartige ID lautet: {userId}.</Text>
+                             <View style={{
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                <QRCode value={JSON.stringify(userId)} 
+                                    size={64} bgColor='#000000' fgColor='#ffffff' />
+                            </View>
+                        </View>
+        
+                       
+                    }
                 />
-
-                <View style={{
-                    margin: Sizes.sectionMarginHorizontal
-                }}>
-                    <Text>Deine einzigartige ID: {userId}</Text>
-                </View>
             </ScrollView>
         </SafeAreaView>
     )
@@ -765,8 +811,6 @@ const EventScreen = ({ navigation }) => {
                     </View>
                 }
             />
-
-            {refreshing ? <ActivityIndicator /> : null}
 
             <FlatList
                 data={dataSource}
@@ -890,21 +934,34 @@ const QRScreen = ({ navigation, route }) => {
 
 const QRScan = ({ navigation, route }) => {
     const onSuccess = (e) => {
-        let data = JSON.parse(e.data);
+        try {
 
-        db.transaction((tx) => {
-            let query = "SELECT * FROM `events` WHERE `event_id` = '" + data.event_id + "';";
-            tx.executeSql(query, [], (_, results) => {
-                if (results.rows.length > 0) {
-                    // Event already exists
-                    updateEvent(data);
-                } else {
-                    createEvent(data)
-                }
-            }, (tx, error) => {
-                console.log("QRScan.onSuccess (error): " + error);
+            // Check if all needed data is available.
+            let data = JSON.parse(e.data);
+            if (data.event_id == null || data.event_name == null) {
+                throw new Error("unsupported");
+            }
+
+            // All data available.
+            // Create or update event.
+            db.transaction((tx) => {
+                let query = "SELECT * FROM `events` WHERE `event_id` = '" + data.event_id + "';";
+                tx.executeSql(query, [], (_, results) => {
+                    if (results.rows.length > 0) {
+                        // Event already exists
+                        updateEvent(data);
+                    } else {
+                        createEvent(data)
+                    }
+                }, (tx, error) => {
+                    console.log("QRScan.onSuccess (error): " + error);
+                });
             });
-        });
+        } catch (error) {
+            Alert.alert("Fehler", "Der QR-Code konnte nicht gelesen werden.\nStelle sicher, dass der QR-Code " +
+                "von einer anderen Alex-App generiert wurde oder die gleiche Schnittstelle verwendet.");
+            navigation.navigate("EventScreen");
+        }
     };
     
     const createEvent = (data) => {
@@ -912,7 +969,7 @@ const QRScan = ({ navigation, route }) => {
             let query = "INSERT INTO `events` (`event_id`, `event_name`, `creation_date`) VALUES \
                 ('" + data.event_id + "', '" + data.event_name + "', DATETIME('now', 'localtime'))";
             tx.executeSql(query, [], (_, results) => {
-                Alert.alert("New event", data.event_name);
+                Alert.alert("Neues Event hinzugefügt", data.event_name);
                 navigation.navigate("EventScreen");
             }, (tx, error) => {
                 console.log("QRScan.createEvent (error): " + error);
@@ -925,7 +982,7 @@ const QRScan = ({ navigation, route }) => {
             let query = "UPDATE `events` SET `creation_date` = DATETIME('now', 'localtime') \
                 WHERE `event_id` = '" + data.event_id + "';";
             tx.executeSql(query, [], (_, results) => {
-                Alert.alert("Update event", data.event_name);
+                Alert.alert("Event aktualisiert", data.event_name);
                 navigation.navigate("EventScreen");
             }, (tx, error) => {
                 console.log("QRScan.updateEvent (error): " + error);
