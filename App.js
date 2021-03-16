@@ -366,8 +366,11 @@ const HomeScreen = ({ navigation, route }) => {
     const [stateText, setStateText] = useState(null);
 
     useEffect(() => {
+        getData();
+        checkIfTestAvailable();
+
         const unsubscribe = navigation.addListener('focus', () => {
-            onRefresh();
+            // onRefresh();
         });
 
         return unsubscribe;
@@ -389,9 +392,9 @@ const HomeScreen = ({ navigation, route }) => {
     };
 
     const onRefresh = () => {
-        updateState(userState);
         getData();
         checkIfTestAvailable();
+        updateState(userState);
     }
 
     const checkIfTestAvailable = () => {
